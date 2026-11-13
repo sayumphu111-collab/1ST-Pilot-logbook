@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>กรอก Pilot Logbook</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; color: #1f2937; padding-bottom: 90px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card h2 { font-size: 15px; margin-bottom: 10px; color: #111827; }
+
+  /* file zone */
+  #dropzone { border: 2px dashed #9ca3af; border-radius: 10px; padding: 22px; text-align: center; cursor: pointer; color: #6b7280; transition: .15s; }
+  #dropzone.drag { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+  #dropzone .big { font-size: 15px; font-weight: 600; }
+  #dropzone .small { font-size: 12px; margin-top: 4px; }
+  #fileInfo { margin-top: 10px; font-size: 13px; color: #059669; font-weight: 600; }
+
+  /* summary */
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; }
+  .stat { flex: 1; min-width: 140px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+  .stat .v { font-size: 20px; font-weight: 700; color: #1d4ed8; }
+  .stat .l { font-size: 12px; color: #6b7280; }
+
+  /* table */
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  select, input, button { font-family: inherit; }
+  select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; }
+  .tblwrap { overflow-x: auto; max-height: 340px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { position: sticky; top: 0; background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; white-space: nowrap; font-weight: 600; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+  tr.free td { color: #9ca3af; }
+  tr.deleted td { text-decoration: line-through; color: #dc2626; background: #fef2f2; }
+  tr.newrow td { background: #f0fdf4; }
+  tr.changed td { background: #fffbeb; }
+  .btn { border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .btn-edit { background: #dbeafe; color: #1d4ed8; }
+  .btn-del { background: #fee2e2; color: #b91c1c; }
+  .btn-und { background: #dcfce7; color: #15803d; }
+
+  /* form */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 12px; font-weight: 600; color: #374151; }
+  .field input, .field select { padding: 7px 9px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; width: 100%; }
+  .field input:focus, .field select:focus { outline: 2px solid #93c5fd; border-color: #2563eb; }
+  .field.wide { grid-column: span 2; }
+  .formbtns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn-primary { background: #2563eb; color: #fff; padding: 9px 18px; font-size: 14px; border-radius: 7px; cursor: pointer; border: none; font-weight: 600; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-ghost { background: #e5e7eb; color: #374151; padding: 9px 16px; font-size: 14px; border-radius: 7px; cursor: pointer; border: none; }
+  .editing-tag { display: inline-block; background: #fef3c7; color: #92400e; font-size: 11.5px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .err { color: #dc2626; font-size: 12.5px; margin-top: 8px; min-height: 16px; }
+
+  /* pending */
+  .pending-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 6px; font-size: 13px; background: #fafafa; }
+  .pending-item .loc { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
+  .pending-item .txt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; }
+
+  /* savebar */
+  #savebar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #d1d5db; padding: 12px 16px; display: flex; justify-content: center; box-shadow: 0 -2px 8px rgba(0,0,0,.07); z-index: 50; }
+  #savebar .inner { max-width: 1100px; width: 100%; display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  #saveinfo { font-size: 13px; color: #6b7280; margin-right: auto; }
+  #savebtn { background: #16a34a; }
+  #savebtn:hover { background: #15803d; }
+  #savebtn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  .hidden { display: none !important; }
+  .toast { position: fixed; top: 18px; right: 18px; background: #111827; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transition: .3s; z-index: 99; }
+  .toast.show { opacity: 1; }
+  .note { font-size: 12px; color: #6b7280; line-height: 1.6; margin-top: 8px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🚁 กรอกข้อมูล Pilot Logbook</h1>
+  <div class="sub">เปิดไฟล์ Excel logbook → กรอก/แก้ไขรายการบิน → บันทึกดาวน์โหลดไฟล์ใหม่ (สูตรและรูปแบบเดิมถูกรักษาไว้)</div>
+
+  <div class="card">
+    <h2>1) เปิดไฟล์ Excel</h2>
+    <div id="dropzone">
+      <div class="big">คลิกเลือกไฟล์ หรือลากไฟล์ .xlsx มาวางที่นี่</div>
+      <div class="small">เช่น 3 Pilot Logbook Aug24 edited 50sheet.xlsx</div>
+      <input type="file" id="fileInput" accept=".xlsx" class="hidden">
+    </div>
+    <div id="fileInfo"></div>
+  </div>
+
+  <div class="card hidden" id="mainCard">
+    <h2>2) ข้อมูลในไฟล์</h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="stEntries">0</div><div class="l">รายการบินทั้งหมด</div></div>
+      <div class="stat"><div class="v" id="stHours">0</div><div class="l">ชั่วโมงบินรวม</div></div>
+      <div class="stat"><div class="v" id="stLastSheet">-</div><div class="l">ชีตล่าสุดที่มีข้อมูล</div></div>
+      <div class="stat"><div class="v" id="stFree">0</div><div class="l">แถวว่างในชีตนั้น</div></div>
+    </div>
+    <div class="toolbar" style="margin-top:12px">
+      <label style="font-size:13px">ดูชีต:</label>
+      <select id="sheetSel"></select>
+    </div>
+    <div class="tblwrap">
+      <table id="tbl">
+        <thead><tr>
+          <th>ลำดับ</th><th>แถว</th><th>วันที่</th><th>ชนิด</th><th>เลขที่</th><th>ต้นทาง</th><th>ปลายทาง</th>
+          <th>ภารกิจ</th><th>สถานะ</th><th>ชม.</th><th>หมายเหตุ</th><th>จัดการ</th>
+        </tr></thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+    <div class="note">แถวเขียว = รายการใหม่ · เหลือง = แก้ไข · แดงขีดฆ่า = ตั้งใจลบ (ล้างค่าในแถวนั้น) · รายการใหม่จะถูกวางต่อจากรายการล่าสุดในไฟล์อัตโนมัติ</div>
+  </div>
+
+  <div class="card hidden" id="formCard">
+    <h2>3) กรอกรายการบิน<span id="editTag" class="editing-tag hidden"></span></h2>
+    <div class="grid">
+      <div class="field"><label>วันที่ *</label><input type="date" id="fDate"></div>
+      <div class="field"><label>ชนิดเครื่องบิน *</label>
+        <select id="fType"><option value="">— เลือก —</option></select></div>
+      <div class="field"><label>เลขที่เครื่องบิน</label><input type="text" id="fNum" placeholder="เช่น 522" inputmode="decimal"></div>
+      <div class="field"><label>ชั่วโมงบิน (0.1–5.0) *</label><input type="number" id="fHours" min="0.1" max="5" step="0.1" placeholder="1.2"></div>
+      <div class="field wide"><label>ต้นทาง (Departure)</label><input type="text" id="fDep" placeholder="เช่น ค่ายสุรนารี / VTPB / LOCAL"></div>
+      <div class="field wide"><label>ปลายทาง (Destination)</label><input type="text" id="fDest"></div>
+      <div class="field"><label>ภารกิจ (Mission/Duty) *</label>
+        <select id="fMission"><option value="">— เลือก —</option></select></div>
+      <div class="field"><label>สถานะการบิน (Flight Duty) *</label>
+        <select id="fDuty"><option value="">— เลือก —</option></select></div>
+      <div class="field wide"><label>หมายเหตุ</label><input type="text" id="fRemark"></div>
+    </div>
+    <div class="err" id="formErr"></div>
+    <div class="formbtns">
+      <button class="btn-primary" id="addBtn">+ เพิ่มรายการ</button>
+      <button class="btn-ghost hidden" id="cancelEditBtn">ยกเลิกการแก้ไข</button>
+    </div>
+    <div id="nextHint" class="note"></div>
+  </div>
+
+  <div class="card hidden" id="pendingCard">
+    <h2>4) รายการรอบันทึกลงไฟล์ (<span id="pendingCount">0</span>)</h2>
+    <div id="pendingList"></div>
+    <div class="note">ยังไม่ได้เขียนลงไฟล์จนกดปุ่มบันทึกด้านล่าง — ไฟล์ต้นฉบับจะไม่ถูกแก้ไข ระบบจะดาวน์โหลดไฟล์ใหม่ให้ทดแทน</div>
+  </div>
+
+</div>
+
+<div id="savebar" class="hidden">
+  <div class="inner">
+    <div id="saveinfo">ยังไม่มีการเปลี่ยนแปลง</div>
+    <button class="btn-primary" id="savebtn" disabled>💾 บันทึกลง Excel และดาวน์โหลด</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ---------- ค่าคงที่ตามโครงสร้างไฟล์ logbook ---------- */
+const COL = { date:2, type:3, num:4, dep:5, dest:6, mission:7, duty:8, hours:9, remark:55 };
+const ROW_FIRST = 4, ROW_LAST = 21;          // 18 แถวต่อชีต
+const TYPES = ['AW139','AW149','AS550','BELL212','UH1','SIM'];
+const MISSIONS = ['Ferry Flight','Parachute','Air Transportation','Air Medivac','Flight Trainning','Special Operation','Standardization','Other','VVIP','VIP'];
+const DUTIES = ['CP/PI','PC','MP','IP','SP'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ---------- state ---------- */
+let wb = null, fileName = '';
+let data = new Map();     // key "S15!12" -> รายการเดิมจากไฟล์
+let edits = new Map();    // key -> {status:'new'|'changed'|'deleted', ...ค่า}
+let sheetNames = [];
+let viewSheet = '';
+let editKey = null;       // key ที่กำลังแก้ไขในฟอร์ม
+let lastVals = {};        // จำค่าล่าสุดเพื่อกรอกซ้ำสะดวก
+
+const $ = id => document.getElementById(id);
+const key = (s, r) => s + '!' + r;
+const unkey = k => { const i = k.indexOf('!'); return [k.slice(0, i), parseInt(k.slice(i + 1), 10)]; };
+
+/* ---------- helpers ---------- */
+function fmtDate(v) {
+  if (v == null || v === '') return '';
+  let d;
+  if (v instanceof Date) d = v;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) { const p = String(v).split('-'); return p[2] + ' ' + MONTHS[p[1]-1] + ' ' + p[0].slice(2); }
+  else return String(v);
+  return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + String(d.getUTCFullYear()).slice(2);
+}
+function dateToSerial(dstr) { // '2026-09-01' -> Date (UTC midnight) สำหรับเขียนลง ExcelJS
+  const p = dstr.split('-');
+  return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+function cellText(ws, row, col) { // อ่านค่าเซลล์เป็นข้อความ/ตัวเลข
+  const v = ws.getCell(row, col).value;
+  if (v == null) return '';
+  if (v instanceof Date) return v; // คืน Date ให้ fmtDate จัดการ
+  if (typeof v === 'object') { if ('richText' in v) return v.richText.map(t => t.text).join(''); if ('result' in v) return v.result == null ? '' : v.result; return String(v); }
+  return v;
+}
+function recText(r) {
+  return [fmtDate(r.date), r.type, r.num, r.dep, r.dest, r.mission, r.duty, r.hours].filter(x => x !== '' && x != null).join(' · ');
+}
+
+/* ---------- โหลดไฟล์ ---------- */
+async function loadFile(file) {
+  try {
+    $('fileInfo').textContent = 'กำลังอ่านไฟล์...';
+    const buf = await file.arrayBuffer();
+    const W = new ExcelJS.Workbook();
+    await W.xlsx.load(buf);
+    wb = W; fileName = file.name;
+    data.clear(); edits.clear(); editKey = null; lastVals = {};
+    sheetNames = wb.worksheets.map(w => w.name).filter(n => /^S\d+$/.test(n));
+    if (!sheetNames.length) throw new Error('ไม่พบชีต S1..S50 ในไฟล์นี้');
+    for (const s of sheetNames) {
+      const ws = wb.getWorksheet(s);
+      for (let r = ROW_FIRST; r <= ROW_LAST; r++) {
+        const rec = {
+          sheet: s, row: r,
+          date: cellText(ws, r, COL.date), type: cellText(ws, r, COL.type),
+          num: cellText(ws, r, COL.num), dep: cellText(ws, r, COL.dep),
+          dest: cellText(ws, r, COL.dest), mission: cellText(ws, r, COL.mission),
+          duty: cellText(ws, r, COL.duty), hours: cellText(ws, r, COL.hours),
+          remark: cellText(ws, r, COL.remark)
+        };
+        if (recText(rec) !== '' || String(rec.remark) !== '') data.set(key(s, r), rec);
+      }
+    }
+    // ชีตเริ่มดู = ชีตล่าสุดที่มีข้อมูล
+    let last = sheetNames[0];
+    for (const s of sheetNames) if ([...data.keys()].some(k => k.startsWith(s + '!'))) last = s;
+    viewSheet = last;
+    ['mainCard','formCard','pendingCard','savebar'].forEach(id => $(id).classList.remove('hidden'));
+    $('fileInfo').textContent = '✓ เปิดแล้ว: ' + fileName + ' (' + sheetNames.length + ' ชีต)';
+    fillSelect($('sheetSel'), sheetNames.map(s => {
+      const used = [...data.keys()].filter(k => k.startsWith(s + '!')).length;
+      return { v: s, t: s + ' (' + used + '/' + (ROW_LAST - ROW_FIRST + 1) + ')' };
+    }), last);
+    resetForm();
+    renderAll();
+    toast('เปิดไฟล์สำเร็จ');
+  } catch (e) {
+    $('fileInfo').textContent = '✗ อ่านไฟล์ไม่ได้: ' + e.message;
+  }
+}
+
+function fillSelect(sel, opts, val) {
+  sel.innerHTML = '';
+  for (const o of opts) { const op = document.createElement('option'); op.value = o.v; op.textContent = o.t; sel.appendChild(op); }
+  if (val) sel.value = val;
+}
+(function initSelects() {
+  fillSelect($('fType'), TYPES.map(t => ({ v: t, t })));
+  fillSelect($('fMission'), MISSIONS.map(t => ({ v: t, t })));
+  fillSelect($('fDuty'), DUTIES.map(t => ({ v: t, t })));
+})();
+
+/* ---------- หาแถวว่างถัดไป (รวมผลการแก้ไข) ---------- */
+function effectiveRec(k) {
+  if (edits.has(k)) { const e = edits.get(k); if (e.status === 'deleted') return null; return e; }
+  return data.get(k) || null;
+}
+function nextFreeSlot() {
+  for (const s of sheetNames) {
+    for (let r = ROW_FIRST; r <= ROW_LAST; r++) {
+      const k = key(s, r);
+      const rec = effectiveRec(k);
+      if (!rec) return { sheet: s, row: r };
+    }
+  }
+  return null;
+}
+function sheetFreeRows(s) {
+  let n = 0;
+  for (let r = ROW_FIRST; r <= ROW_LAST; r++) if (!effectiveRec(key(s, r))) n++;
+  return n;
+}
+
+/* ---------- render ---------- */
+function renderAll() {
+  renderStats(); renderTable(); renderPending(); updateNextHint();
+  const n = edits.size;
+  $('saveinfo').textContent = n ? ('มี ' + n + ' การเปลี่ยนแปลงรอบันทึก') : 'ยังไม่มีการเปลี่ยนแปลง';
+  $('savebtn').disabled = n === 0;
+}
+function renderStats() {
+  let total = 0, hours = 0, lastSheet = '-', free = 0;
+  for (const s of sheetNames) {
+    let cnt = 0;
+    for (let r = ROW_FIRST; r <= ROW_LAST; r++) {
+      const rec = effectiveRec(key(s, r));
+      if (rec) { cnt++; total++; if (typeof rec.hours === 'number') hours += rec.hours; else { const h = parseFloat(rec.hours); if (!isNaN(h)) hours += h; } }
+    }
+    if (cnt > 0) { lastSheet = s; free = ROW_LAST - ROW_FIRST + 1 - cnt; }
+  }
+  $('stEntries').textContent = total;
+  $('stHours').textContent = hours.toFixed(1);
+  $('stLastSheet').textContent = lastSheet;
+  $('stFree').textContent = free;
+}
+function renderTable() {
+  const tbody = $('tblBody'); tbody.innerHTML = '';
+  const ws = viewSheet;
+  for (let r = ROW_FIRST; r <= ROW_LAST; r++) {
+    const k = key(ws, r);
+    const rec = effectiveRec(k);
+    const isDel = edits.has(k) && edits.get(k).status === 'deleted';
+    const isEdit = edits.has(k) && edits.get(k).status === 'changed';
+    const isNew = edits.has(k) && edits.get(k).status === 'new';
+    const tr = document.createElement('tr');
+    if (isDel) tr.className = 'deleted'; else if (isEdit) tr.className = 'changed'; else if (isNew) tr.className = 'newrow'; else if (!rec) tr.className = 'free';
+    const mk = (v) => { const td = document.createElement('td'); td.textContent = v == null ? '' : (typeof v === 'number' ? v : String(v)); td.title = td.textContent; return td; };
+    tr.appendChild(mk(r - ROW_FIRST + 1));
+    tr.appendChild(mk(r));
+    tr.appendChild(mk(rec ? fmtDate(rec.date) : ''));
+    tr.appendChild(mk(rec ? rec.type : ''));
+    tr.appendChild(mk(rec ? rec.num : ''));
+    tr.appendChild(mk(rec ? rec.dep : ''));
+    tr.appendChild(mk(rec ? rec.dest : ''));
+    tr.appendChild(mk(rec ? rec.mission : ''));
+    tr.appendChild(mk(rec ? rec.duty : ''));
+    const h = rec ? rec.hours : '';
+    const tdH = mk(h === '' ? '' : (typeof h === 'number' ? h.toFixed(1) : h));
+    tr.appendChild(tdH);
+    tr.appendChild(mk(rec ? rec.remark : ''));
+    const tdA = document.createElement('td');
+    if (rec && !isDel) {
+      const bE = document.createElement('button'); bE.className = 'btn btn-edit'; bE.textContent = 'แก้ไข';
+      bE.onclick = () => startEdit(k); tdA.appendChild(bE);
+      const bD = document.createElement('button'); bD.className = 'btn btn-del'; bD.textContent = 'ลบ';
+      bD.style.marginLeft = '4px';
+      bD.onclick = () => { if (edits.has(k) && edits.get(k).status === 'new') edits.delete(k); else edits.set(k, { status: 'deleted' }); if (editKey === k) cancelEdit(); renderAll(); };
+      tdA.appendChild(bD);
+    } else if (isDel) {
+      const bU = document.createElement('button'); bU.className = 'btn btn-und'; bU.textContent = 'กู้คืน';
+      bU.onclick = () => { edits.delete(k); renderAll(); };
+      tdA.appendChild(bU);
+    }
+    tr.appendChild(tdA);
+    tbody.appendChild(tr);
+  }
+}
+function renderPending() {
+  const box = $('pendingList'); box.innerHTML = '';
+  const items = [...edits.entries()];
+  $('pendingCount').textContent = items.length;
+  for (const [k, e] of items) {
+    const [s, r] = unkey(k);
+    const div = document.createElement('div'); div.className = 'pending-item';
+    let txt;
+    if (e.status === 'deleted') txt = '🗑 ลบแถว — ' + recText(data.get(k) || e);
+    else if (e.status === 'changed') txt = '✏️ แก้ไข — ' + recText(e);
+    else txt = '➕ ใหม่ — ' + recText(e);
+    const loc = document.createElement('span'); loc.className = 'loc'; loc.textContent = s + ' แถว ' + r;
+    const tx = document.createElement('span'); tx.className = 'txt'; tx.textContent = txt; tx.title = txt;
+    const bX = document.createElement('button'); bX.className = 'btn btn-und'; bX.textContent = 'เลิกทำ';
+    bX.onclick = () => { edits.delete(k); if (editKey === k) cancelEdit(); renderAll(); };
+    div.appendChild(loc); div.appendChild(tx); div.appendChild(bX);
+    box.appendChild(div);
+  }
+}
+function updateNextHint() {
+  const slot = nextFreeSlot();
+  $('nextHint').textContent = slot ? ('รายการใหม่ลำดับถัดไปจะบันทึกที่: ' + slot.sheet + ' แถว ' + slot.row) : '⚠️ ทุกชีตเต็มแล้ว';
+}
+
+/* ---------- ฟอร์ม ---------- */
+function resetForm() {
+  ['fDate','fNum','fDep','fDest','fRemark'].forEach(id => $(id).value = '');
+  ['fType','fMission','fDuty'].forEach(id => $(id).value = '');
+  $('fHours').value = '';
+  $('formErr').textContent = '';
+  editKey = null;
+  $('editTag').classList.add('hidden');
+  $('cancelEditBtn').classList.add('hidden');
+  $('addBtn').textContent = '+ เพิ่มรายการ';
+  if (lastVals.date) $('fDate').value = lastVals.date;
+  if (lastVals.type) $('fType').value = lastVals.type;
+  if (lastVals.num != null) $('fNum').value = lastVals.num;
+  if (lastVals.dep != null) $('fDep').value = lastVals.dep;
+  if (lastVals.dest != null) $('fDest').value = lastVals.dest;
+  if (lastVals.mission) $('fMission').value = lastVals.mission;
+  if (lastVals.duty) $('fDuty').value = lastVals.duty;
+}
+function startEdit(k) {
+  const rec = effectiveRec(k); if (!rec) return;
+  editKey = k;
+  $('fDate').value = rec.date instanceof Date ? rec.date.toISOString().slice(0, 10) : (/^\d{4}-\d{2}-\d{2}$/.test(String(rec.date)) ? String(rec.date) : '');
+  $('fType').value = String(rec.type || '');
+  $('fNum').value = rec.num == null ? '' : String(rec.num);
+  $('fDep').value = rec.dep || '';
+  $('fDest').value = rec.dest || '';
+  $('fMission').value = String(rec.mission || '');
+  $('fDuty').value = String(rec.duty || '');
+  $('fHours').value = rec.hours == null ? '' : String(rec.hours);
+  $('fRemark').value = rec.remark || '';
+  $('formErr').textContent = '';
+  const [s, r] = unkey(k);
+  $('editTag').textContent = 'กำลังแก้ไข ' + s + ' แถว ' + r;
+  $('editTag').classList.remove('hidden');
+  $('cancelEditBtn').classList.remove('hidden');
+  $('addBtn').textContent = '💾 บันทึกการแก้ไข';
+  $('formCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function cancelEdit() { resetForm(); }
+function collectForm() {
+  const date = $('fDate').value;
+  const type = $('fType').value;
+  const numStr = $('fNum').value.trim();
+  const dep = $('fDep').value.trim();
+  const dest = $('fDest').value.trim();
+  const mission = $('fMission').value;
+  const duty = $('fDuty').value;
+  const hours = parseFloat($('fHours').value);
+  const remark = $('fRemark').value.trim();
+  const errs = [];
+  if (!date) errs.push('วันที่');
+  if (!type) errs.push('ชนิดเครื่องบิน');
+  if (!mission) errs.push('ภารกิจ');
+  if (!duty) errs.push('สถานะการบิน');
+  if (isNaN(hours) || hours < 0.1 || hours > 5) errs.push('ชั่วโมงบิน (0.1–5.0)');
+  if (errs.length) { $('formErr').textContent = 'กรุณากรอก: ' + errs.join(', '); return null; }
+  let num = '';
+  if (numStr !== '') num = /^-?\d+(\.\d+)?$/.test(numStr) ? parseFloat(numStr) : numStr;
+  return { date, type, num, dep, dest, mission, duty, hours, remark };
+}
+function onAdd() {
+  const rec = collectForm();
+  if (!rec) return;
+  $('formErr').textContent = '';
+  lastVals = { date: rec.date, type: rec.type, num: $('fNum').value.trim(), dep: rec.dep, dest: rec.dest, mission: rec.mission, duty: rec.duty };
+  if (editKey) {
+    const k = editKey;
+    const wasExisting = data.has(k);
+    edits.set(k, Object.assign({ sheet: unkey(k)[0], row: unkey(k)[1], status: wasExisting ? 'changed' : 'new' }, rec));
+    toast('แก้ไขแล้ว (รอบันทึกลงไฟล์)');
+  } else {
+    const slot = nextFreeSlot();
+    if (!slot) { $('formErr').textContent = 'ทุกชีตเต็มแล้ว ไม่มีที่ว่างเพิ่ม'; return; }
+    edits.set(key(slot.sheet, slot.row), Object.assign({ sheet: slot.sheet, row: slot.row, status: 'new' }, rec));
+    toast('เพิ่มแล้ว: ' + slot.sheet + ' แถว ' + slot.row);
+  }
+  resetForm();
+  // ถ้าแถวที่เพิ่งเพิ่มอยู่ชีตที่กำลังดูอยู่ หรือชีตใหม่ ให้สลับไปดูชีตนั้น
+  const lastAddSheet = [...edits.keys()].map(unkey).map(x => x[0]).pop();
+  if (lastAddSheet) { viewSheet = lastAddSheet; $('sheetSel').value = lastAddSheet; }
+  renderAll();
+}
+
+/* ---------- บันทึกลงไฟล์ ---------- */
+async function saveFile() {
+  if (!wb || !edits.size) return;
+  $('savebtn').disabled = true;
+  $('saveinfo').textContent = 'กำลังเขียนไฟล์...';
+  try {
+    for (const [k, e] of edits) {
+      const [s, r] = unkey(k);
+      const ws = wb.getWorksheet(s);
+      if (!ws) throw new Error('ไม่พบชีต ' + s);
+      if (e.status === 'deleted') {
+        [COL.date, COL.type, COL.num, COL.dep, COL.dest, COL.mission, COL.duty, COL.hours, COL.remark].forEach(c => { ws.getCell(r, c).value = null; });
+      } else {
+        ws.getCell(r, COL.date).value = dateToSerial(e.date);
+        ws.getCell(r, COL.type).value = e.type;
+        ws.getCell(r, COL.num).value = e.num === '' ? null : e.num;
+        ws.getCell(r, COL.dep).value = e.dep === '' ? null : e.dep;
+        ws.getCell(r, COL.dest).value = e.dest === '' ? null : e.dest;
+        ws.getCell(r, COL.mission).value = e.mission;
+        ws.getCell(r, COL.duty).value = e.duty;
+        ws.getCell(r, COL.hours).value = e.hours;
+        ws.getCell(r, COL.remark).value = e.remark === '' ? null : e.remark;
+      }
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName || 'Pilot_Logbook_Updated.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    // ยืนยันการเปลี่ยนแปลงลง state (อ่านคืนจาก workbook ที่เขียนแล้ว)
+    data.clear(); edits.clear();
+    for (const s of sheetNames) {
+      const ws2 = wb.getWorksheet(s);
+      for (let r = ROW_FIRST; r <= ROW_LAST; r++) {
+        const rec = { sheet: s, row: r, date: cellText(ws2, r, COL.date), type: cellText(ws2, r, COL.type), num: cellText(ws2, r, COL.num), dep: cellText(ws2, r, COL.dep), dest: cellText(ws2, r, COL.dest), mission: cellText(ws2, r, COL.mission), duty: cellText(ws2, r, COL.duty), hours: cellText(ws2, r, COL.hours), remark: cellText(ws2, r, COL.remark) };
+        if (recText(rec) !== '' || String(rec.remark) !== '') data.set(key(s, r), rec);
+      }
+    }
+    resetForm();
+    renderAll();
+    toast('✓ บันทึกและดาวน์โหลดแล้ว');
+  } catch (e) {
+    $('saveinfo').textContent = '✗ ผิดพลาด: ' + e.message;
+    $('savebtn').disabled = false;
+  }
+}
+
+/* ---------- events ---------- */
+$('dropzone').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => { if (e.target.files[0]) loadFile(e.target.files[0]); };
+['dragover','dragenter'].forEach(ev => $('dropzone').addEventListener(ev, e => { e.preventDefault(); $('dropzone').classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => $('dropzone').addEventListener(ev, e => { e.preventDefault(); $('dropzone').classList.remove('drag'); }));
+$('dropzone').addEventListener('drop', e => { if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+$('sheetSel').onchange = e => { viewSheet = e.target.value; renderTable(); };
+$('addBtn').onclick = onAdd;
+$('cancelEditBtn').onclick = cancelEdit;
+$('savebtn').onclick = saveFile;
+$('fHours').addEventListener('keydown', e => { if (e.key === 'Enter') onAdd(); });
+</script>
+</body>
+</html>
